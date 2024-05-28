@@ -4,37 +4,41 @@ Hooks.once("init", () => {
             return;
         }
 
-        const testVisiblity = foundry.utils.isNewerVersion(game.version, 12)
-            ? (token) => {
-                const { width, height } = token.getSize();
-                const tolerance = Math.min(width, height) / 4;
+        CONFIG.Token.objectClass = game.release.generation >= 12
+            ? class extends CONFIG.Token.objectClass {
+                /** @override */
+                get isVisible() {
+                    if (canvas.scene.tokenVision && !this.document.hidden && !this.vision?.active
+                        && this.actor?.testUserPermission(game.user, CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER)) {
+                        const { width, height } = this.getSize();
+                        const tolerance = Math.min(width, height) / 4;
+                        const visible = canvas.visibility.testVisibility(this.center, { tolerance, object: this });
 
-                return canvas.visibility.testVisibility(token.center, { tolerance, object: token });
-            }
-            : (token) => {
-                const tolerance = Math.min(token.w, token.h) / 4;
+                        this.detectionFilter = visible ? null : hatchFilter;
 
-                return canvas.effects.visibility.testVisibility(token.center, { tolerance, object: token });
-            };
-
-        CONFIG.Token.objectClass = class extends CONFIG.Token.objectClass {
-            /** @override */
-            get isVisible() {
-                if (canvas.scene.tokenVision && !this.document.hidden
-                    && this.actor?.testUserPermission(game.user, "OBSERVER")
-                    && !canvas.effects.visionSources.get(this.sourceId)?.active) {
-                    this.detectionFilter = undefined;
-
-                    if (!testVisiblity(this)) {
-                        this.detectionFilter = hatchFilter;
+                        return true;
                     }
 
-                    return true;
+                    return super.isVisible;
                 }
-
-                return super.isVisible;
             }
-        };
+            : class extends CONFIG.Token.objectClass {
+                /** @override */
+                get isVisible() {
+                    if (canvas.scene.tokenVision && !this.document.hidden
+                        && !canvas.effects.visionSources.get(this.sourceId)?.active
+                        && this.actor?.testUserPermission(game.user, CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER)) {
+                        const tolerance = Math.min(this.w, this.h) / 4;
+                        const visible = canvas.effects.visibility.testVisibility(this.center, { tolerance, object: this });
+
+                        this.detectionFilter = visible ? undefined : hatchFilter;
+
+                        return true;
+                    }
+
+                    return super.isVisible;
+                }
+            };
 
         class HatchFilter extends AbstractBaseFilter {
             /** @override */
@@ -54,7 +58,7 @@ Hooks.once("init", () => {
                     vTextureCoord = (aVertexPosition * outputFrame.zw) * inputSize.zw;
                     vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.0)) + outputFrame.xy;
                     vec2 offset = position - origin;
-                    vOffset = (offset.x + offset.y) / (2.0 * thickness);
+                    vOffset = (offset.x + offset.y) / (1.414213562373095 * 2.0 * thickness);
                     gl_Position = vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);
                 }
             `;
@@ -99,7 +103,7 @@ Hooks.once("init", () => {
         const hatchFilter = HatchFilter.create();
     };
 
-    if (foundry.utils.isNewerVersion(game.version, 11)) {
+    if (game.release.generation >= 11) {
         Hooks.once("setup", setup);
     } else {
         Hooks.once("setup", () => {
