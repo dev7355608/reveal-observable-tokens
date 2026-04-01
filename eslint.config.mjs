@@ -29,6 +29,7 @@ export default [
                 foundry: "readonly",
                 Hooks: "readonly",
                 game: "readonly",
+                ui: "readonly",
             },
         },
         rules: {
