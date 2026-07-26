@@ -9,14 +9,13 @@ let detectionFilter;
 export default (Token) => class extends Token {
     /** @override */
     get isVisible() {
-        if (!this.isPreview && this._preview?.previewType !== "config"
-            && !(this.layer.active && this.document.visible && ui.placeables?.isEntryVisible(this) === false)
-            && canvas.scene.tokenVision && !this.document.hidden && !this.vision?.active
+        if (!this.isPreview && this._preview?.previewType !== "config" && !this.isFilteredOut
+            && !this.document.hidden && canvas.visibility.tokenVision && !this.vision?.active
             && this.actor?.testUserPermission(game.user, CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER)) {
             let visible;
 
             if (game.release.generation >= 14) {
-                visible = canvas.visibility.testVisibility(this.document.getVisibilityTestPoints(), { tolerance: 0, object: this });
+                visible = !this._testCulled?.() && canvas.visibility.testVisibility(this.document.getVisibilityTestPoints(), { tolerance: 0, object: this });
             } else {
                 const { width, height } = this.document.getSize();
                 const tolerance = Math.min(width, height) / 4;
